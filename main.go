@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
+	"os"
 	"strings"
 	"sync"
 
-	"github.com/gocolly/colly"
+	"github.com/joho/godotenv"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -15,25 +15,52 @@ import (
 )
 
 func main() {
+	godotenv.Load()
+	testMode := true
+
+	var fighterURLs []string
+
+	if testMode {
+		fighterURLs = []string{
+			"http://www.ufcstats.com/fighter-details/54f64b5e283b0ce7",
+		}
+	} else {
+		fighterURLs = crawlFighterURLs()
+	}
+
+	save_fighters_data(fighterURLs)
+	// var wg sync.WaitGroup
+	// for _, url := range fighterURLs {
+	// 	wg.Add(1)
+	// 	go func(url string) {
+	// 		defer wg.Done()
+			
+	// 		parseFighterURL(url)
+	// 	}(url)
+	// }
+	// wg.Wait()
+}
+
+func crawlFighterURLs() []string {
 	options := &types.Options{
 		MaxDepth:     2,
 		FieldScope:   "rdn",
 		BodyReadSize: math.MaxInt,
-		Timeout:      10,
-		Concurrency:  10,
-		Parallelism:  10,
-		Delay:        5,
+		Timeout:      5,
+		Concurrency:  5,
+		Parallelism:  5,
+		Delay:        1,
 		RateLimit:    10,
 		Strategy:     "breadth-first",
 	}
 
 	fighterURLs := []string{}
 	urlMutex := &sync.Mutex{}
-	maxFighters := 3
 
 	options.OnResult = func(result output.Result) {
 		url := result.Request.URL
-		if strings.Contains(url, "/fighter-details") {
+		if strings.Contains(url, "/fighter-details/") {
+			gologger.Info().Msgf("Found URL: %s", url)
 			urlMutex.Lock()
 			fighterURLs = append(fighterURLs, url)
 			urlMutex.Unlock()
@@ -52,7 +79,7 @@ func main() {
 	}
 	defer crawler.Close()
 
-	input := ""
+	input := os.Getenv("URL") + "/statistics/fighters"
 	err = crawler.Crawl(input)
 	if err != nil {
 		gologger.Warning().Msgf("Could not crawl %s: %s", input, err.Error())
@@ -60,35 +87,8 @@ func main() {
 
 	fighterURLs = uniqueStrings(fighterURLs)
 
-	if len(fighterURLs) < maxFighters {
-		maxFighters = len(fighterURLs)
-		gologger.Warning().Msgf("Only %d fighter URLs found. Proceeding with available fighters.", maxFighters)
-	} else {
-		gologger.Info().Msgf("Limiting the trial run to %d fighters.", maxFighters)
-	}
-
-	c := colly.NewCollector(
-		colly.AllowedDomains("", ""),
-	)
-
-	c.OnHTML("div.b-content", func(e *colly.HTMLElement) {
-		name := strings.TrimSpace(e.ChildText("span.b-content__title-highlight"))
-		stats := e.ChildText("ul.b-list__box-list li")
-		fmt.Printf("Name: %s\n", name)
-		for _, stat := range stats {
-			fmt.Println(stat)
-		}
-		fmt.Println("---------------------------")
-	})
-
-	for _, url := range fighterURLs {
-		err := c.Visit(url)
-		if err != nil {
-			log.Printf("Error visiting %s: %v", url, err)
-		}
-	}
-
-	c.Wait()
+	fmt.Println("Found", len(fighterURLs), "fighter URLs")
+	return fighterURLs
 }
 
 func uniqueStrings(input []string) []string {

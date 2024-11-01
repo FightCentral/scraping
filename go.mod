@@ -34,6 +34,7 @@ require (
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hdm/jarm-go v0.0.7 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
